@@ -26,7 +26,8 @@ def get_header_and_info(tag):
 def get_total_from_monthly(text):
     # Find the start and end dates in the date range string
     start_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
-    end_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text[start_date_match.end():text.find('£')])
+    end_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", 
+                                text[start_date_match.end():text.find('£')])
     if end_date_match:
         end_date = parse(end_date_match.group(1))
         #print('end date matched.') # Debugging
@@ -89,10 +90,12 @@ def get_freebies(name, url):
                                             text[tot_indx + find_p:]).start()
             total_value = text[tot_indx + find_p + 1:tot_indx + find_p +
                                                                     end_indx]
-            total_value = ''.join([c for c in total_value if c in '1234567890.']).strip('.')
+            total_value = ''.join([c for c in total_value if c in 
+                                                    '1234567890.']).strip('.')
             print(f"£_{total_value} (Suspected total)") # Printing
             grand_total += float(total_value)
-        elif 'from' in tl and 'until' in tl and '£' in tl and not ('annual' in tl or 'yearly' in tl or 'a year' in tl):
+        elif 'from' in tl and 'until' in tl and '£' in tl and not ('annual' in 
+                                    tl or 'yearly' in tl or 'a year' in tl):
             total_value = get_total_from_monthly(text)
             print(f"£_{total_value} (Calculated total)") # Printing
             grand_total += float(total_value)
@@ -101,7 +104,8 @@ def get_freebies(name, url):
             #print(info.text) # Debugging
             for word in words_in_info:
                 if '£' in word:
-                    total_value = ''.join([c for c in word if c in '1234567890.']).strip('.')
+                    total_value = ''.join([c for c in word if c in 
+                                                    '1234567890.']).strip('.')
                     print(f"£_{total_value}") # Printing
                     grand_total += float(total_value)
     print(f'Grand Total: {round(grand_total, 2)}')
@@ -116,7 +120,7 @@ with open('mp_finances_link_dic_v2.pydata', 'rb') as f:
 mp_finances_dic = {}
 # View items in dictionary
 for name, link in mp_finances_link_dic.items():
-    if name == 'Aiken, Nickie ':
+    if name == 'Aiken, Nickie ' or name == 'Abbott, Ms Diane ':
         mp_finances_dic[name] = get_freebies(name, link)
 
 # Pickle the dictionary
