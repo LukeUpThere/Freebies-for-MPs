@@ -7,9 +7,9 @@ import re
 from dateutil.parser import parse
 
 ### FUNCTIONS ###
-def old_get_header_and_info(tag):
-    return tag.name == 'p' and ('indent' in tag.get('class', [])or'indent2' in
-                                  tag.get('class', [])) or (tag.name == 'strong' and tag.child.name != 'em')
+# ~ def old_get_header_and_info(tag):
+    # ~ return tag.name == 'p' and ('indent' in tag.get('class', [])or'indent2' in
+    # ~ tag.get('class', [])) or (tag.name == 'strong' and tag.child.name != 'em')
 
 def get_header_and_info(tag):
     if tag is None:
@@ -18,9 +18,9 @@ def get_header_and_info(tag):
         return True
     if tag.name == 'strong':
         if tag.child is None:
-            return True # Should be false
-        if tag.child.name == 'em':
-            return False
+            return True
+        elif tag.child.name == 'em':
+            return True
     return False
 
 def get_total_from_monthly(text):
@@ -57,13 +57,11 @@ def get_total_from_monthly(text):
 def get_freebies(name, url):
     # Correctly set up the Chrome Driver Exe path.
     os.environ["PATH"] += os.pathsep + 'D:\Code\chromedriver_win32'
-    # Create chrome webdriver, navigate to url and wait for page to load.
+    # Use a chrome webdriver to get the HTML from the URL and make some Soup.
     driver = webdriver.Chrome()
     driver.get(url)
     driver.implicitly_wait(10)
-    # Get HTML content and make some soup
-    html_content = driver.page_source
-    soup = BeautifulSoup(html_content, 'html.parser')
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
 
     grand_total = 0.0
     infos = soup.find_all(get_header_and_info)
