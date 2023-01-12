@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 import re
 from dateutil.parser import parse
-os.system('clear')
 
 ### FUNCTIONS ###
 def old_get_header_and_info(tag):
@@ -56,8 +55,10 @@ def get_total_from_monthly(text):
 
 
 def get_freebies(name, url):
-    # Create safari webdriver, navigate to url and wait for page to load.
-    driver = webdriver.Safari()
+    # Correctly set up the Chrome Driver Exe path.
+    os.environ["PATH"] += os.pathsep + 'D:\Code\chromedriver_win32'
+    # Create chrome webdriver, navigate to url and wait for page to load.
+    driver = webdriver.Chrome()
     driver.get(url)
     driver.implicitly_wait(10)
     # Get HTML content and make some soup
