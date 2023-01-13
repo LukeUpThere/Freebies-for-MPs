@@ -5,6 +5,25 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 import re
 from dateutil.parser import parse
+### CLASSES ###
+
+class MemberOfParlement:
+    def __init__(self, name, constituency, party):
+        self.name = name
+        self.constituency = constituency
+        self.party = party
+        self.donations = []
+
+    def add_donation(self, amount, source, date):
+        self.donations.append({"amount": amount,
+                               "interest type": interest_type, 
+                               "date": date})
+
+    def total_donations(self):
+        total = 0
+        for donation in self.donations:
+            total += donation["amount"]
+        return total
 
 ### FUNCTIONS ###
 
@@ -78,9 +97,11 @@ def get_freebies(name, url):
     
     # Setup a running tally and a list of elements to search.
     grand_total = 0.0
+    donations = []
     infos = soup.find_all(get_header_and_info)
     
     print('\n' + name)
+    interest_type = ''
     for info in infos:
         text = info.text
         tl = text.lower()
@@ -88,8 +109,10 @@ def get_freebies(name, url):
         if text[0].isalnum() and text[1] == '.':
             if ':' in text:
                 print(text[:text.find(':')])
+                interest_type = text[:text.find(':')]
             else:
                 print(text)
+                interest_type = text
         # Locate and print stated totals.
         elif 'total' in text and text[text.find("total"):].find('£') != -1:
             tot_indx = text.find("total")
@@ -99,13 +122,13 @@ def get_freebies(name, url):
             tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
             total = ''.join([c for c in tot if c in '1234567890.']).strip('.')
             print(f"£_{total_value} (Suspected total)") # Printing
-            grand_total += float(total_value)
+            amount = total_value
         # Locate date ranges with monthly pay and calculate an annual total.
-        elif 'from' in tl and 'until' in tl and '£' in tl and not ('annual' in 
-                                    tl or 'yearly' in tl or 'a year' in tl):
+        elif all(x in tl for x in ['from','until','£']) and not 
+             any(x in tl for x in ['annual', 'yearly', 'a year']):
             total_value = get_total_from_monthly(text)
             print(f"£_{total_value} (Calculated total)") # Printing
-            grand_total += float(total_value)
+            amount = total_value
         # Locate all other monetary sums and print them.
         else:
             words_in_info = info.text.split(' ')
@@ -115,10 +138,12 @@ def get_freebies(name, url):
                     total_value = ''.join([c for c in word if c in 
                                                     '1234567890.']).strip('.')
                     print(f"£_{total_value}") # Printing
-                    grand_total += float(total_value)
-    # Print and return the grand total.
-    print(f'Grand Total: {round(grand_total, 2)}')
-    return round(grand_total, 2)
+                    amount += total_value
+        
+        donations.append({'amount': amount,
+                          'interest type': interest_type,
+                          'date': date_received})
+    return donations
 
 ### MAIN CODE ###
 
