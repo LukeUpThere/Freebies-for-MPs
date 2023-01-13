@@ -7,21 +7,23 @@ import re
 from dateutil.parser import parse
 
 ### FUNCTIONS ###
-# ~ def old_get_header_and_info(tag):
-    # ~ return tag.name == 'p' and ('indent' in tag.get('class', [])or'indent2' in
-    # ~ tag.get('class', [])) or (tag.name == 'strong' and tag.child.name != 'em')
 
 def get_header_and_info(tag):
+    """
+    This function returns true for indented elements and for the numbered 
+    headers without returning duplicate items when tagged as 'strong'.
+    """
     if tag is None:
         return False
-    if tag.name == 'p' and ('indent' in tag.get('class', []) or 'indent2' in tag.get('class', [])):
+    elif tag.name == 'p' and any(cls in ['indent', 'indent2'] for cls in tag.get('class', [])):
         return True
-    if tag.name == 'strong':
-        if tag.child is None:
+    elif tag.name != 'strong':
+        header_pattern = '^\d{1,2}\. '
+        if re.search(header_pattern, tag.get_text()):
             return True
-        elif tag.child.name == 'em':
-            return True
-    return False
+    else:
+        return False
+
 
 def get_total_from_monthly(text):
     # Find the start and end dates in the date range string
