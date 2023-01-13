@@ -24,8 +24,12 @@ def get_header_and_info(tag):
     else:
         return False
 
-
 def get_total_from_monthly(text):
+    """
+    This function takes in a string containing a date range and a monthly 
+    income, extracts the start and end dates, and calculates the total income 
+    for the given date range.
+    """
     # Find the start and end dates in the date range string
     start_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
     end_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", 
@@ -56,8 +60,14 @@ def get_total_from_monthly(text):
     total_income = round(income * ((end_date - start_date).days / 30), 2)
     return total_income
 
-
 def get_freebies(name, url):
+    """
+    Scrapes a webpage for financial interests of a member of parliament and 
+    returns the total amount of money received.
+    :param name: name of the member of parliament
+    :param url: url of the webpage to scrape
+    :return: total monetary amount received
+    """
     # Correctly set up the Chrome Driver Exe path.
     os.environ["PATH"] += os.pathsep + 'D:\Code\chromedriver_win32'
     # Use a chrome webdriver to get the HTML from the URL and make some Soup.
@@ -65,42 +75,38 @@ def get_freebies(name, url):
     driver.get(url)
     driver.implicitly_wait(10)
     soup = BeautifulSoup(driver.page_source, 'html.parser')
-
+    
+    # Setup a running tally and a list of elements to search.
     grand_total = 0.0
     infos = soup.find_all(get_header_and_info)
+    
     print('\n' + name)
     for info in infos:
         text = info.text
         tl = text.lower()
-
-        # Trying to catch the duplicates but failing
-        used_text = []
-        if tl in used_text:
-            continue
-        else:
-            used_text.append(tl)
-        
+        # Print numbered headers.
         if text[0].isalnum() and text[1] == '.':
             if ':' in text:
                 print(text[:text.find(':')])
             else:
                 print(text)
+        # Locate and print stated totals.
         elif 'total' in text and text[text.find("total"):].find('£') != -1:
             tot_indx = text.find("total")
             find_p = text[tot_indx:].find('£')
             end_indx = re.search(r"[^1234567890,.£]",
                                             text[tot_indx + find_p:]).start()
-            total_value = text[tot_indx + find_p + 1:tot_indx + find_p +
-                                                                    end_indx]
-            total_value = ''.join([c for c in total_value if c in 
-                                                    '1234567890.']).strip('.')
+            tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
+            total = ''.join([c for c in tot if c in '1234567890.']).strip('.')
             print(f"£_{total_value} (Suspected total)") # Printing
             grand_total += float(total_value)
+        # Locate date ranges with monthly pay and calculate an annual total.
         elif 'from' in tl and 'until' in tl and '£' in tl and not ('annual' in 
                                     tl or 'yearly' in tl or 'a year' in tl):
             total_value = get_total_from_monthly(text)
             print(f"£_{total_value} (Calculated total)") # Printing
             grand_total += float(total_value)
+        # Locate all other monetary sums and print them.
         else:
             words_in_info = info.text.split(' ')
             #print(info.text) # Debugging
@@ -110,10 +116,12 @@ def get_freebies(name, url):
                                                     '1234567890.']).strip('.')
                     print(f"£_{total_value}") # Printing
                     grand_total += float(total_value)
+    # Print and return the grand total.
     print(f'Grand Total: {round(grand_total, 2)}')
     return round(grand_total, 2)
 
 ### MAIN CODE ###
+
 # Pickle load links
 mp_finances_link_dic = {}
 with open('mp_finances_link_dic_v2.pydata', 'rb') as f:
@@ -132,15 +140,6 @@ for name, link in mp_finances_link_dic.items():
 
 
 ## To-Do (Ideas and Planing) ##
-# class="indent" and class="indent2" contain main information.
-# having issue where text with both strong and indent is being passed to
-#   get_freebies() twice. Probably coming from issue with get_head... func
-
-# The text can be searched, every word containing '£' could be returned.
-# I need to come up with a way of filtering out (or otherwise accounting for)
-# 'total values' of financial interests. perhaps looking for the word 'total'?
-# In addition, many MPs log income as a monthly sum and give start/end dates;
-# I'll need to figure out how to account for that.
 
 # <strong></strong> contains numbered headers needed to sort types of info.
 # Headers represent 10 types of financial interests that need to be declared.
