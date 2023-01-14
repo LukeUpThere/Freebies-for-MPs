@@ -9,6 +9,11 @@ from dateutil.parser import parse
 ### CLASSES ###
 
 class MP:
+    """
+    Represent a Member of Parliament with name, constituency, party and 
+    donations attributes. Provide methods to add a donation and calculate
+    total donations received.
+    """
     def __init__(self, name, constituency = 'Unknown', party = 'Unknown'):
         self.name = name
         self.constituency = constituency
@@ -106,7 +111,7 @@ def webscrape_freebies(name, url):
     print('\n' + name)
     interest_type = ''
     for info in infos:
-        print(info)
+        # ~ print(info) # Debugging
         amount = 0
         text = info.text
         tl = text.lower()
