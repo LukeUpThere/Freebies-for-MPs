@@ -33,6 +33,21 @@ class MP:
 
 ### FUNCTIONS ###
 
+def pickle_io(file_name, data = None, save = False, load = False):
+    if save and load:
+        raise ValueError("Cannot both save and load")
+    elif save:
+        if data != None:
+            with open(f'{file_name}.pydata', 'wb') as f:
+                pickle.dump(data, f)
+        else:
+            raise ValueError("Data cannot be None")
+    elif load:
+        with open(f'{file_name}.pydata', 'rb') as f:
+            return pickle.load(f)
+    else:
+        raise ValueError("Must set save or load to true")
+
 def get_header_and_info(tag):
     """
     This function returns true for indented elements and for the numbered 
@@ -61,7 +76,7 @@ def get_total_from_monthly(text):
                                 text[start_date_match.end():text.find('£')])
     if end_date_match:
         end_date = parse(end_date_match.group(1))
-        date_received = end_date_match
+        date_received = end_date_match.group(1)
         #print('end date matched.') # Debugging
     else:
         end_date = parse("01 May 2022")
@@ -100,7 +115,7 @@ def webscrape_freebies(name, url):
     # Use a chrome webdriver to get the HTML from the URL and make some Soup.
     driver = webdriver.Chrome()
     driver.get(url)
-    driver.implicitly_wait(10)
+    driver.implicitly_wait(5)
     soup = BeautifulSoup(driver.page_source, 'html.parser')
     
     # Setup a running tally and a list of elements to search.
@@ -131,10 +146,10 @@ def webscrape_freebies(name, url):
             end_indx = re.search(r"[^1234567890,.£]",
                                             text[tot_indx + find_p:]).start()
             tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
-            total = ''.join([c for c in tot if c in '1234567890.']).strip('.')
-            print(f"£_{total_value} (Suspected total)") # Printing
+            amount = ''.join([c for c in tot if c in '1234567890.']).strip('.')
+            print(f"£_{amount} (Suspected total)") # Printing
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
-            amount = total_value
+            date_received = date_received.group(1)
         # Locate date ranges with monthly pay and calculate an annual total.
         elif all(x in tl for x in ['from','until','£']) and not any(x in tl for x in ['annual', 'yearly', 'a year']):
             total_value, date_received = get_total_from_monthly(text)
@@ -143,6 +158,8 @@ def webscrape_freebies(name, url):
         # Locate all other monetary sums and print them.
         else:
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
+            if date_received:
+                date_received = date_received.group(1)
             words_in_info = info.text.split(' ')
             #print(info.text) # Debugging
             for word in words_in_info:
@@ -155,15 +172,39 @@ def webscrape_freebies(name, url):
         if amount:
             donations.append({'amount': amount,
                               'interest type': interest_type,
-                              'date': date_received.group(1)})
+                              'date': date_received})
     return donations
+
+def match_mps_data():
+    """
+    Create a dictionary of MP objects and match the names to the CSV data.
+    Apply the CSV data to each object by adding the MP's Party and Constituency.
+    Also, Scrape the donations information and add it to each MP object and
+    save the updated object to the pickle file
+    """
+    for name, link in mp_finances_link_dic.items():
+        if name not in mps:
+            for names, detail in mp_party_constit.items():
+                if all(x in name for x in names):
+                    mps[name] = MP(name, detail['Constituency'], detail['Party'])
+                    print(f'{name} vs {names}: csv match')
+                    break
+                else:
+                    mps[name] = MP(name)
+                    print(f'{name} vs {names}: no csv match')
+            # Add donations to each MP
+            donations = webscrape_freebies(name, link)
+            for donation in donations:
+                mps[name].add_donation(donation['amount'], 
+                                       donation['interest type'],
+                                       donation['date'])
+        print('\n--Saving data--\n')
+        pickle_io('MP_Object_Dict', data = mps, save=True)
 
 ### MAIN CODE ###
 
 # Pickle load links
-mp_finances_link_dic = {}
-with open('mp_finances_link_dic.pydata', 'rb') as f:
-    mp_finances_link_dic = pickle.load(f)
+mp_finances_link_dic = pickle_io(load=True, file_name = 'mp_finances_link_dic')
 
 # Load CSV and get party and constituency data
 fields = []
@@ -177,31 +218,42 @@ for row in rows:
     mp_party_constit[mp_fl_names] = {'Party': row[3], 'Constituency': row[4]}
 
 
-# Create a dictionary of MP objects, match the names to the CSV data and apply
-#   that data to each object (add each MPs Party and Constituency).
-mps = {}
-for name, link in mp_finances_link_dic.items():
-    if name[0] == 'A':
-        for names, detail in mp_party_constit.items():
-            if all(x in name for x in names):
-                mps[name] = MP(name, detail['Constituency'], detail['Party'])
-                print(f'{name} vs {names}: csv match')
-                break
-            else:
-                mps[name] = MP(name)
-                print(f'{name} vs {names}: no csv match')
-        # Add donations to each MP
-        donations = webscrape_freebies(name, link)
-        for donation in donations:
-            mps[name].add_donation(donation['amount'], 
-                                   donation['interest type'],
-                                   donation['date'])
-        print(mps[name].party)
+mps = pickle_io('MP_Object_Dict', load = True)
+# ~ match_mps_data()
 
-# Pickle the dictionary
-# ~ file_object = open('mp_finances_dic.pydata', 'wb')
-# ~ pickle.dump(mp_finances_dic, file_object)
-# ~ file_object.close()
+#### WIP
+for mp, mpclass in mps.items():
+    if mpclass.constituency == 'Unknown':
+        full_name = mpclass.name
+        full_name = full_name.strip()
+        
+        substrings_to_remove = ['Mr ', 'Dr ', 'Miss ', 'Ms ', 'Lady ', 'Lord ', 'Sir ']
+        full_names = [full_name.replace(substring, "") for substring in substrings_to_remove if substring in full_name]
+
+        print(full_names)
+        print(mp)
+        # ~ for names, detail in mp_party_constit.items():
+            # ~ if all(x in names for x in mpclass.name):
+                # ~ mps[name] = MP(name, detail['Constituency'], detail['Party'])
+                # ~ print(f'{name} vs {names}: csv match')
+quit()
+                    
+                    
+                    
+mps['Baker, Mr Steve '].party = 'Conservative'
+mps['Baker, Mr Steve '].constituency = 'Wycombe'
+mps['Brown, Mr Nicholas '].party = 'Labour'
+mps['Brown, Mr Nicholas '].constituency = 'Newcastle upon Tyne East'
+mps['Cash, Sir William '].party = 'Conservative'
+mps['Cash, Sir William '].constituency = 'Stone'
+mps['Coffey, Dr Thérèse '].party = 'Conservative'
+mps['Coffey, Dr Thérèse '].constituency = 'Suffolk Coastal'
+mps['Cooper, Rosie '].party = 'Labour'
+mps['Cooper, Rosie '].constituency = 'West Lancashire'
+
+
+
+
 
 
 ## To-Do (Ideas and Planing) ##
