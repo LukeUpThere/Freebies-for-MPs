@@ -223,15 +223,17 @@ mps = pickle_io('MP_Object_Dict', load = True)
 
 #### WIP
 for mp, mpclass in mps.items():
-    print(mp)
-    print(mpclass.party)
-    print(mpclass.constituency)
-    for donation in mpclass.donation:
-        print(donation['amount'])
     total = mpclass.total_donations()
-    print(f'Total: £{total}\n')
+    if total >= 100000:
+        print(mp)
+        print(mpclass.party)
+        print(mpclass.constituency)
+        # ~ for donation in mpclass.donations:
+            # ~ print(donation['amount'])
+        print(f'Total: £{total}\n')
 
 #Spencer, Mark
+#Bradshaw, Mr Ben 
 
 # ~ pickle_io('MP_Object_Dict', data = mps, save = True)
 
