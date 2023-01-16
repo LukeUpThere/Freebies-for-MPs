@@ -224,34 +224,67 @@ mps = pickle_io('MP_Object_Dict', load = True)
 #### WIP
 for mp, mpclass in mps.items():
     if mpclass.constituency == 'Unknown':
-        full_name = mpclass.name
-        full_name = full_name.strip()
-        
-        substrings_to_remove = ['Mr ', 'Dr ', 'Miss ', 'Ms ', 'Lady ', 'Lord ', 'Sir ']
-        full_names = [full_name.replace(substring, "") for substring in substrings_to_remove if substring in full_name]
+        print(f"mps['{mp}'].party = ")
+        print(f"mps['{mp}'].constituency = \n")
 
-        print(full_names)
-        print(mp)
-        # ~ for names, detail in mp_party_constit.items():
-            # ~ if all(x in names for x in mpclass.name):
-                # ~ mps[name] = MP(name, detail['Constituency'], detail['Party'])
-                # ~ print(f'{name} vs {names}: csv match')
-quit()
-                    
-                    
-                    
-mps['Baker, Mr Steve '].party = 'Conservative'
-mps['Baker, Mr Steve '].constituency = 'Wycombe'
-mps['Brown, Mr Nicholas '].party = 'Labour'
-mps['Brown, Mr Nicholas '].constituency = 'Newcastle upon Tyne East'
-mps['Cash, Sir William '].party = 'Conservative'
-mps['Cash, Sir William '].constituency = 'Stone'
-mps['Coffey, Dr Thérèse '].party = 'Conservative'
-mps['Coffey, Dr Thérèse '].constituency = 'Suffolk Coastal'
-mps['Cooper, Rosie '].party = 'Labour'
-mps['Cooper, Rosie '].constituency = 'West Lancashire'
+mps['Begley, Órfhlaith '].party =
+mps['Begley, Órfhlaith '].constituency =
 
+mps['Davey, Ed '].party =
+mps['Davey, Ed '].constituency =
 
+mps['De Cordova, Marsha '].party =
+mps['De Cordova, Marsha '].constituency =
+
+mps['Donaldson, Sir Jeffrey M '].party =
+mps['Donaldson, Sir Jeffrey M '].constituency =
+
+mps['Fletcher, Nick '].party =
+mps['Fletcher, Nick '].constituency =
+
+mps['Green, Kate '].party =
+mps['Green, Kate '].constituency =
+
+mps['Griffiths, Kate '].party =
+mps['Griffiths, Kate '].constituency =
+
+mps['Hancock, Matt '].party =
+mps['Hancock, Matt '].constituency =
+
+mps['Hazzard, Chris '].party =
+mps['Hazzard, Chris '].constituency =
+
+mps['Johnson, Dame Diana '].party =
+mps['Johnson, Dame Diana '].constituency =
+
+mps['Long Bailey, Rebecca '].party =
+mps['Long Bailey, Rebecca '].constituency =
+
+mps['Matheson, Christian '].party =
+mps['Matheson, Christian '].constituency =
+
+mps['McDonnell, John '].party =
+mps['McDonnell, John '].constituency =
+
+mps['Neill, Sir Robert '].party =
+mps['Neill, Sir Robert '].constituency =
+
+mps['Paisley, Ian '].party =
+mps['Paisley, Ian '].constituency =
+
+mps['Poulter, Dr Dan '].party =
+mps['Poulter, Dr Dan '].constituency =
+
+mps['Shah, Naz '].party =
+mps['Shah, Naz '].constituency =
+
+mps['Slaughter, Andy '].party =
+mps['Slaughter, Andy '].constituency =
+
+mps['Tugendhat, Tom '].party =
+mps['Tugendhat, Tom '].constituency =
+
+pickle_io('MP_Object_Dict', data = mps, save = True)
 
 
 
