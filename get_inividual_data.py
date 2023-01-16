@@ -28,7 +28,7 @@ class MP:
     def total_donations(self):
         total = 0
         for donation in self.donations:
-            total += donation["amount"]
+            total += float(donation["amount"])
         return total
 
 ### FUNCTIONS ###
@@ -151,7 +151,7 @@ def webscrape_freebies(name, url):
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
             date_received = date_received.group(1)
         # Locate date ranges with monthly pay and calculate an annual total.
-        elif all(x in tl for x in ['from','until','£']) and not any(x in tl for x in ['annual', 'yearly', 'a year']):
+        elif all(x in tl for x in ['from','until','£']) and not any(x in tl for x in ['annual', 'yearly', 'a year', 'per annum']):
             total_value, date_received = get_total_from_monthly(text)
             print(f"£_{total_value} (Calculated total)") # Printing
             amount = total_value
@@ -223,68 +223,17 @@ mps = pickle_io('MP_Object_Dict', load = True)
 
 #### WIP
 for mp, mpclass in mps.items():
-    if mpclass.constituency == 'Unknown':
-        print(f"mps['{mp}'].party = ")
-        print(f"mps['{mp}'].constituency = \n")
+    print(mp)
+    print(mpclass.party)
+    print(mpclass.constituency)
+    for donation in mpclass.donation:
+        print(donation['amount'])
+    total = mpclass.total_donations()
+    print(f'Total: £{total}\n')
 
-mps['Begley, Órfhlaith '].party =
-mps['Begley, Órfhlaith '].constituency =
+#Spencer, Mark
 
-mps['Davey, Ed '].party =
-mps['Davey, Ed '].constituency =
-
-mps['De Cordova, Marsha '].party =
-mps['De Cordova, Marsha '].constituency =
-
-mps['Donaldson, Sir Jeffrey M '].party =
-mps['Donaldson, Sir Jeffrey M '].constituency =
-
-mps['Fletcher, Nick '].party =
-mps['Fletcher, Nick '].constituency =
-
-mps['Green, Kate '].party =
-mps['Green, Kate '].constituency =
-
-mps['Griffiths, Kate '].party =
-mps['Griffiths, Kate '].constituency =
-
-mps['Hancock, Matt '].party =
-mps['Hancock, Matt '].constituency =
-
-mps['Hazzard, Chris '].party =
-mps['Hazzard, Chris '].constituency =
-
-mps['Johnson, Dame Diana '].party =
-mps['Johnson, Dame Diana '].constituency =
-
-mps['Long Bailey, Rebecca '].party =
-mps['Long Bailey, Rebecca '].constituency =
-
-mps['Matheson, Christian '].party =
-mps['Matheson, Christian '].constituency =
-
-mps['McDonnell, John '].party =
-mps['McDonnell, John '].constituency =
-
-mps['Neill, Sir Robert '].party =
-mps['Neill, Sir Robert '].constituency =
-
-mps['Paisley, Ian '].party =
-mps['Paisley, Ian '].constituency =
-
-mps['Poulter, Dr Dan '].party =
-mps['Poulter, Dr Dan '].constituency =
-
-mps['Shah, Naz '].party =
-mps['Shah, Naz '].constituency =
-
-mps['Slaughter, Andy '].party =
-mps['Slaughter, Andy '].constituency =
-
-mps['Tugendhat, Tom '].party =
-mps['Tugendhat, Tom '].constituency =
-
-pickle_io('MP_Object_Dict', data = mps, save = True)
+# ~ pickle_io('MP_Object_Dict', data = mps, save = True)
 
 
 
