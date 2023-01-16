@@ -1,38 +1,86 @@
 # Gets financial data on each MP
 import os
 import pickle
+import csv
 from bs4 import BeautifulSoup
 from selenium import webdriver
 import re
 from dateutil.parser import parse
-os.system('clear')
+### CLASSES ###
+
+class MP:
+    """
+    Represent a Member of Parliament with name, constituency, party and 
+    donations attributes. Provide methods to add a donation and calculate
+    total donations received.
+    """
+    def __init__(self, name, constituency = 'Unknown', party = 'Unknown'):
+        self.name = name
+        self.constituency = constituency
+        self.party = party
+        self.donations = []
+
+    def add_donation(self, amount, interest_type, date):
+        self.donations.append({"amount": amount,
+                               "interest type": interest_type, 
+                               "date": date})
+
+    def total_donations(self):
+        total = 0
+        for donation in self.donations:
+            total += donation["amount"]
+        return total
 
 ### FUNCTIONS ###
-def old_get_header_and_info(tag):
-    return tag.name == 'p' and ('indent' in tag.get('class', [])or'indent2' in
-                                  tag.get('class', [])) or (tag.name == 'strong' and tag.child.name != 'em')
+
+def pickle_io(file_name, data = None, save = False, load = False):
+    if save and load:
+        raise ValueError("Cannot both save and load")
+    elif save:
+        if data != None:
+            with open(f'{file_name}.pydata', 'wb') as f:
+                pickle.dump(data, f)
+        else:
+            raise ValueError("Data cannot be None")
+    elif load:
+        with open(f'{file_name}.pydata', 'rb') as f:
+            return pickle.load(f)
+    else:
+        raise ValueError("Must set save or load to true")
 
 def get_header_and_info(tag):
+    """
+    This function returns true for indented elements and for the numbered 
+    headers without returning duplicate items when tagged as 'strong'.
+    """
     if tag is None:
         return False
-    if tag.name == 'p' and ('indent' in tag.get('class', []) or 'indent2' in tag.get('class', [])):
+    elif tag.name == 'p' and any(cls in ['indent', 'indent2'] for cls in tag.get('class', [])):
         return True
-    if tag.name == 'strong':
-        if tag.child is None:
-            return True # Should be false
-        if tag.child.name == 'em':
-            return False
-    return False
+    elif tag.name != 'strong':
+        header_pattern = '^\d{1,2}\. '
+        if re.search(header_pattern, tag.get_text()):
+            return True
+    else:
+        return False
 
 def get_total_from_monthly(text):
+    """
+    This function takes in a string containing a date range and a monthly 
+    income, extracts the start and end dates, and calculates the total income 
+    for the given date range.
+    """
     # Find the start and end dates in the date range string
     start_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
-    end_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text[start_date_match.end():text.find('£')])
+    end_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", 
+                                text[start_date_match.end():text.find('£')])
     if end_date_match:
         end_date = parse(end_date_match.group(1))
+        date_received = end_date_match.group(1)
         #print('end date matched.') # Debugging
     else:
         end_date = parse("01 May 2022")
+        date_received = "01 May 2022"
         
     written_sd = parse(start_date_match.group(1))
     session_sd = parse("01 May 2021")
@@ -46,96 +94,202 @@ def get_total_from_monthly(text):
         #print(f"income: {income}") # Debugging
     else:
         # handle the case where no match was found
-        return 'error with income_match'
+        return ('error with income_match', date_received)
 
     income = float(income_match.group(1).replace(',', '')[1:])
 
     # Calculate the total income
     total_income = round(income * ((end_date - start_date).days / 30), 2)
-    return total_income
+    return (total_income, date_received)
 
-
-def get_freebies(name, url):
-    # Create safari webdriver, navigate to url and wait for page to load.
-    driver = webdriver.Safari()
+def webscrape_freebies(name, url):
+    """
+    Scrapes a webpage for financial interests of a member of parliament and 
+    returns details about each donation in the form of a list of dictionaries.
+    :param name: name of the member of parliament
+    :param url: url of the webpage to scrape
+    :return: list of donations received
+    """
+    # Correctly set up the Chrome Driver Exe path.
+    os.environ["PATH"] += os.pathsep + 'D:\Code\chromedriver_win32'
+    # Use a chrome webdriver to get the HTML from the URL and make some Soup.
+    driver = webdriver.Chrome()
     driver.get(url)
-    driver.implicitly_wait(10)
-    # Get HTML content and make some soup
-    html_content = driver.page_source
-    soup = BeautifulSoup(html_content, 'html.parser')
-
+    driver.implicitly_wait(5)
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    
+    # Setup a running tally and a list of elements to search.
     grand_total = 0.0
+    donations = []
     infos = soup.find_all(get_header_and_info)
+    
     print('\n' + name)
+    interest_type = ''
     for info in infos:
+        # ~ print(info) # Debugging
+        amount = 0
         text = info.text
         tl = text.lower()
-
-        # Trying to catch the duplicates but failing
-        used_text = []
-        if tl in used_text:
-            continue
-        else:
-            used_text.append(tl)
-        
+        # Print numbered headers.
         if text[0].isalnum() and text[1] == '.':
             if ':' in text:
                 print(text[:text.find(':')])
+                interest_type = text[:text.find(':')]
             else:
                 print(text)
+                interest_type = text
+            continue
+        # Locate and print stated totals.
         elif 'total' in text and text[text.find("total"):].find('£') != -1:
             tot_indx = text.find("total")
             find_p = text[tot_indx:].find('£')
             end_indx = re.search(r"[^1234567890,.£]",
                                             text[tot_indx + find_p:]).start()
-            total_value = text[tot_indx + find_p + 1:tot_indx + find_p +
-                                                                    end_indx]
-            total_value = ''.join([c for c in total_value if c in '1234567890.']).strip('.')
-            print(f"£_{total_value} (Suspected total)") # Printing
-            grand_total += float(total_value)
-        elif 'from' in tl and 'until' in tl and '£' in tl and not ('annual' in tl or 'yearly' in tl or 'a year' in tl):
-            total_value = get_total_from_monthly(text)
+            tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
+            amount = ''.join([c for c in tot if c in '1234567890.']).strip('.')
+            print(f"£_{amount} (Suspected total)") # Printing
+            date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
+            date_received = date_received.group(1)
+        # Locate date ranges with monthly pay and calculate an annual total.
+        elif all(x in tl for x in ['from','until','£']) and not any(x in tl for x in ['annual', 'yearly', 'a year']):
+            total_value, date_received = get_total_from_monthly(text)
             print(f"£_{total_value} (Calculated total)") # Printing
-            grand_total += float(total_value)
+            amount = total_value
+        # Locate all other monetary sums and print them.
         else:
+            date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
+            if date_received:
+                date_received = date_received.group(1)
             words_in_info = info.text.split(' ')
             #print(info.text) # Debugging
             for word in words_in_info:
                 if '£' in word:
-                    total_value = ''.join([c for c in word if c in '1234567890.']).strip('.')
+                    total_value = ''.join([c for c in word if c in 
+                                                    '1234567890.']).strip('.')
                     print(f"£_{total_value}") # Printing
-                    grand_total += float(total_value)
-    print(f'Grand Total: {round(grand_total, 2)}')
-    return round(grand_total, 2)
+                    amount += float(total_value)
+        
+        if amount:
+            donations.append({'amount': amount,
+                              'interest type': interest_type,
+                              'date': date_received})
+    return donations
+
+def match_mps_data():
+    """
+    Create a dictionary of MP objects and match the names to the CSV data.
+    Apply the CSV data to each object by adding the MP's Party and Constituency.
+    Also, Scrape the donations information and add it to each MP object and
+    save the updated object to the pickle file
+    """
+    for name, link in mp_finances_link_dic.items():
+        if name not in mps:
+            for names, detail in mp_party_constit.items():
+                if all(x in name for x in names):
+                    mps[name] = MP(name, detail['Constituency'], detail['Party'])
+                    print(f'{name} vs {names}: csv match')
+                    break
+                else:
+                    mps[name] = MP(name)
+                    print(f'{name} vs {names}: no csv match')
+            # Add donations to each MP
+            donations = webscrape_freebies(name, link)
+            for donation in donations:
+                mps[name].add_donation(donation['amount'], 
+                                       donation['interest type'],
+                                       donation['date'])
+        print('\n--Saving data--\n')
+        pickle_io('MP_Object_Dict', data = mps, save=True)
 
 ### MAIN CODE ###
+
 # Pickle load links
-mp_finances_link_dic = {}
-with open('mp_finances_link_dic_v2.pydata', 'rb') as f:
-    mp_finances_link_dic = pickle.load(f)
+mp_finances_link_dic = pickle_io(load=True, file_name = 'mp_finances_link_dic')
 
-mp_finances_dic = {}
-# View items in dictionary
-for name, link in mp_finances_link_dic.items():
-    if name == 'Aiken, Nickie ':
-        mp_finances_dic[name] = get_freebies(name, link)
+# Load CSV and get party and constituency data
+fields = []
+mp_party_constit = {}
+with open('mps.csv', 'r') as csvfile:
+    csv_reader = csv.reader(csvfile)
+    feilds = next(csv_reader)
+    rows = [row for row in csv_reader]
+for row in rows:
+    mp_fl_names = (row[2], row[1])
+    mp_party_constit[mp_fl_names] = {'Party': row[3], 'Constituency': row[4]}
 
-# Pickle the dictionary
-# ~ file_object = open('mp_finances_dic.pydata', 'wb')
-# ~ pickle.dump(mp_finances_dic, file_object)
-# ~ file_object.close()
+
+mps = pickle_io('MP_Object_Dict', load = True)
+# ~ match_mps_data()
+
+#### WIP
+for mp, mpclass in mps.items():
+    if mpclass.constituency == 'Unknown':
+        print(f"mps['{mp}'].party = ")
+        print(f"mps['{mp}'].constituency = \n")
+
+mps['Begley, Órfhlaith '].party =
+mps['Begley, Órfhlaith '].constituency =
+
+mps['Davey, Ed '].party =
+mps['Davey, Ed '].constituency =
+
+mps['De Cordova, Marsha '].party =
+mps['De Cordova, Marsha '].constituency =
+
+mps['Donaldson, Sir Jeffrey M '].party =
+mps['Donaldson, Sir Jeffrey M '].constituency =
+
+mps['Fletcher, Nick '].party =
+mps['Fletcher, Nick '].constituency =
+
+mps['Green, Kate '].party =
+mps['Green, Kate '].constituency =
+
+mps['Griffiths, Kate '].party =
+mps['Griffiths, Kate '].constituency =
+
+mps['Hancock, Matt '].party =
+mps['Hancock, Matt '].constituency =
+
+mps['Hazzard, Chris '].party =
+mps['Hazzard, Chris '].constituency =
+
+mps['Johnson, Dame Diana '].party =
+mps['Johnson, Dame Diana '].constituency =
+
+mps['Long Bailey, Rebecca '].party =
+mps['Long Bailey, Rebecca '].constituency =
+
+mps['Matheson, Christian '].party =
+mps['Matheson, Christian '].constituency =
+
+mps['McDonnell, John '].party =
+mps['McDonnell, John '].constituency =
+
+mps['Neill, Sir Robert '].party =
+mps['Neill, Sir Robert '].constituency =
+
+mps['Paisley, Ian '].party =
+mps['Paisley, Ian '].constituency =
+
+mps['Poulter, Dr Dan '].party =
+mps['Poulter, Dr Dan '].constituency =
+
+mps['Shah, Naz '].party =
+mps['Shah, Naz '].constituency =
+
+mps['Slaughter, Andy '].party =
+mps['Slaughter, Andy '].constituency =
+
+mps['Tugendhat, Tom '].party =
+mps['Tugendhat, Tom '].constituency =
+
+pickle_io('MP_Object_Dict', data = mps, save = True)
+
+
 
 
 ## To-Do (Ideas and Planing) ##
-# class="indent" and class="indent2" contain main information.
-# having issue where text with both strong and indent is being passed to
-#   get_freebies() twice. Probably coming from issue with get_head... func
-
-# The text can be searched, every word containing '£' could be returned.
-# I need to come up with a way of filtering out (or otherwise accounting for)
-# 'total values' of financial interests. perhaps looking for the word 'total'?
-# In addition, many MPs log income as a monthly sum and give start/end dates;
-# I'll need to figure out how to account for that.
 
 # <strong></strong> contains numbered headers needed to sort types of info.
 # Headers represent 10 types of financial interests that need to be declared.
