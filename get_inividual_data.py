@@ -18,6 +18,7 @@ class MP:
         self.name = name
         self.constituency = constituency
         self.party = party
+        self.url = ''
         self.donations = []
 
     def add_donation(self, amount, interest_type, date):
@@ -64,7 +65,7 @@ def get_header_and_info(tag):
     else:
         return False
 
-def get_total_from_monthly(text):
+def get_total_from_monthly_or_quarterly(text):
     """
     This function takes in a string containing a date range and a monthly 
     income, extracts the start and end dates, and calculates the total income 
@@ -99,7 +100,10 @@ def get_total_from_monthly(text):
     income = float(income_match.group(1).replace(',', '')[1:])
 
     # Calculate the total income
-    total_income = round(income * ((end_date - start_date).days / 30), 2)
+    if any(x in text.lower() for x in ['a quarter', 'quarterly', 'every three months']):
+        total_income = round(income * ((end_date - start_date).days / 91.3), 2)
+    else:
+        total_income = round(income * ((end_date - start_date).days / 30.4), 2)
     return (total_income, date_received)
 
 def webscrape_freebies(name, url):
@@ -140,8 +144,8 @@ def webscrape_freebies(name, url):
                 interest_type = text
             continue
         # Locate and print stated totals.
-        elif 'total' in text and text[text.find("total"):].find('£') != -1:
-            tot_indx = text.find("total")
+        elif 'total' in tl and tl[tl.find("total"):].find('£') != -1:
+            tot_indx = tl.find("total")
             find_p = text[tot_indx:].find('£')
             end_indx = re.search(r"[^1234567890,.£]",
                                             text[tot_indx + find_p:]).start()
@@ -152,7 +156,7 @@ def webscrape_freebies(name, url):
             date_received = date_received.group(1)
         # Locate date ranges with monthly pay and calculate an annual total.
         elif all(x in tl for x in ['from','until','£']) and not any(x in tl for x in ['annual', 'yearly', 'a year', 'per annum']):
-            total_value, date_received = get_total_from_monthly(text)
+            total_value, date_received = get_total_from_monthly_or_quarterly(text)
             print(f"£_{total_value} (Calculated total)") # Printing
             amount = total_value
         # Locate all other monetary sums and print them.
@@ -173,6 +177,8 @@ def webscrape_freebies(name, url):
             donations.append({'amount': amount,
                               'interest type': interest_type,
                               'date': date_received})
+    # There are 10 types of financial interests that need to be declared.
+    # https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
     return donations
 
 def match_mps_data():
@@ -222,32 +228,25 @@ mps = pickle_io('MP_Object_Dict', load = True)
 # ~ match_mps_data()
 
 #### WIP
+
+# ~ mps['Brady, Sir Graham '].donations = []
+# ~ link = 'https://publications.parliament.uk/pa/cm/cmregmem/220503/brady_graham.htm'
+# ~ donations = webscrape_freebies('Brady, Sir Graham ', link)
+# ~ for donation in donations:
+    # ~ mps['Brady, Sir Graham '].add_donation(donation['amount'], 
+                           # ~ donation['interest type'],
+                           # ~ donation['date'])
+
 for mp, mpclass in mps.items():
-    total = mpclass.total_donations()
-    if total >= 100000:
+    if mpclass.total_donations() >= 100000:
         print(mp)
         print(mpclass.party)
         print(mpclass.constituency)
-        # ~ for donation in mpclass.donations:
-            # ~ print(donation['amount'])
-        print(f'Total: £{total}\n')
-
-#Spencer, Mark
-#Bradshaw, Mr Ben 
-
-# ~ pickle_io('MP_Object_Dict', data = mps, save = True)
+        for donation in mpclass.donations:
+            print(donation['amount'])
+        print(f'Total: £{mpclass.total_donations()}\n')
 
 
 
+#pickle_io('MP_Object_Dict', data = mps, save = True)
 
-## To-Do (Ideas and Planing) ##
-
-# <strong></strong> contains numbered headers needed to sort types of info.
-# Headers represent 10 types of financial interests that need to be declared.
-# More info on these 10 types can be found here:
-#   https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
-
-
-
-# Print the parsed HTML content
-#print(soup.prettify())
