@@ -21,15 +21,23 @@ class MP:
         self.url = ''
         self.donations = []
 
-    def add_donation(self, amount, interest_type, date):
+    def add_donation(self, amount, interest_type, date, hours):
         self.donations.append({"amount": amount,
                                "interest type": interest_type, 
-                               "date": date})
+                               "date": date,
+                               "hours": hours})
 
     def total_donations(self):
         total = 0
         for donation in self.donations:
             total += float(donation["amount"])
+        return total
+    
+    def total_hours(self):
+        total = 0
+        for donation in self.donations:
+            if isinstance(donation['hours'], float):
+                total += donation['hours']
         return total
 
 ### FUNCTIONS ###
@@ -64,6 +72,39 @@ def get_header_and_info(tag):
             return True
     else:
         return False
+
+def find_hours(string):
+    # Determine if the string contains a unit of time appended by a frequency
+    #   and a time period. 
+    time_unit = r"(hr|hrs|hour|hours|min|mins|minute|minutes)"
+    frequency = r"(a|per|each)"
+    period = r"(week|month|quarter|year)"
+    money = r"(\£\d{1,3}(?:,\d{3})*)"
+    t_regex = re.compile(r"\d* " + time_unit + " " + frequency + " " + period)
+    m_regex = re.compile(money + " " + frequency + " " + period) 
+    is_hrs_per_time_unit = re.search(t_regex, string)
+    is_money_per_time_unit = re.search(m_regex, string)
+    
+    # Find hours worked
+    hours_regex = re.compile(r"Hours:\s*([\d\.]+)\s*(hr|hrs|mins|min)")
+    match = hours_regex.search(string)
+    
+    # If the frequency of the payment doesn't match the frequency of the hours
+    #   worked, return an error message.
+    if is_hrs_per_time_unit and is_money_per_time_unit:
+        if is_hrs_per_time_unit.group(3) != is_money_per_time_unit.group(3):
+            return "Error: Frequency of payments and hours don't match."
+    
+    # Calculate and return the hours worked.
+    if match:
+        hours = match.group(1)
+        unit = match.group(2)
+        if unit == "hrs" or unit == "hr":
+            return float(hours)
+        elif unit == "mins" or unit == "min":
+            return float(hours) / 60
+    else:
+        return None
 
 def get_total_from_monthly_or_quarterly(text):
     """
@@ -172,11 +213,12 @@ def webscrape_freebies(name, url):
                                                     '1234567890.']).strip('.')
                     print(f"£_{total_value}") # Printing
                     amount += float(total_value)
-        
         if amount:
+            hours = find_hours(text)
             donations.append({'amount': amount,
                               'interest type': interest_type,
-                              'date': date_received})
+                              'date': date_received,
+                              'hours': hours})
     # There are 10 types of financial interests that need to be declared.
     # https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
     return donations
@@ -213,11 +255,9 @@ def match_mps_data():
 mp_finances_link_dic = pickle_io(load=True, file_name = 'mp_finances_link_dic')
 
 # Load CSV and get party and constituency data
-fields = []
 mp_party_constit = {}
 with open('mps.csv', 'r') as csvfile:
     csv_reader = csv.reader(csvfile)
-    feilds = next(csv_reader)
     rows = [row for row in csv_reader]
 for row in rows:
     mp_fl_names = (row[2], row[1])
@@ -229,22 +269,29 @@ mps = pickle_io('MP_Object_Dict', load = True)
 
 #### WIP
 
-# ~ mps['Brady, Sir Graham '].donations = []
-# ~ link = 'https://publications.parliament.uk/pa/cm/cmregmem/220503/brady_graham.htm'
-# ~ donations = webscrape_freebies('Brady, Sir Graham ', link)
-# ~ for donation in donations:
-    # ~ mps['Brady, Sir Graham '].add_donation(donation['amount'], 
-                           # ~ donation['interest type'],
-                           # ~ donation['date'])
+# Update donations to include new calculation logic and hours attribute.
+for name, link in mp_finances_link_dic.items():
+    mps[name].donations = []
+    donations = webscrape_freebies(name, link)
+    for donation in donations:
+        mps[name].add_donation(donation['amount'], 
+                               donation['interest type'],
+                               donation['date'],
+                               donation['hours'])
+    print(f"Saving new donation data for {name}...")
+    pickle_io('MP_Object_Dict', data = mps, save = True)
 
-for mp, mpclass in mps.items():
-    if mpclass.total_donations() >= 100000:
-        print(mp)
-        print(mpclass.party)
-        print(mpclass.constituency)
-        for donation in mpclass.donations:
-            print(donation['amount'])
-        print(f'Total: £{mpclass.total_donations()}\n')
+
+# ~ for mp, mpclass in mps.items():
+# ~ mpclass = mps['Abbott, Ms Diane ']
+    # ~ #if mpclass.total_donations() >= 100000:
+# ~ print(mpclass.name)
+# ~ print(mpclass.party)
+# ~ print(mpclass.constituency)
+# ~ for donation in mpclass.donations:
+    # ~ print(donation['amount'])
+# ~ print(f'Total: £{mpclass.total_donations()}\n')
+# ~ print(mpclass.donations[0]['hours'])
 
 
 
