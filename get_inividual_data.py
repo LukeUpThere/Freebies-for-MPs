@@ -270,29 +270,35 @@ mps = pickle_io('MP_Object_Dict', load = True)
 #### WIP
 
 # Update donations to include new calculation logic and hours attribute.
-for name, link in mp_finances_link_dic.items():
-    mps[name].donations = []
-    donations = webscrape_freebies(name, link)
-    for donation in donations:
-        mps[name].add_donation(donation['amount'], 
-                               donation['interest type'],
-                               donation['date'],
-                               donation['hours'])
-    print(f"Saving new donation data for {name}...")
-    pickle_io('MP_Object_Dict', data = mps, save = True)
+# ~ for name, link in mp_finances_link_dic.items():
+    # ~ mps[name].donations = []
+    # ~ donations = webscrape_freebies(name, link)
+    # ~ for donation in donations:
+        # ~ mps[name].add_donation(donation['amount'], 
+                               # ~ donation['interest type'],
+                               # ~ donation['date'],
+                               # ~ donation['hours'])
+    # ~ print(f"Saving new donation data for {name}...")
+    # ~ pickle_io('MP_Object_Dict', data = mps, save = True)
 
+# Finding hours errors
+error_mps = {}
+error_count = 0
+for mp in mps:
+    has_error = False
+    mp_errors = 0
+    for donation in mps[mp].donations:
+        if isinstance(donation['hours'], str):
+            has_error = True
+            mp_errors += 1
+    if has_error:
+        error_count += 1
+        error_mps[mp] = mp_errors
 
-# ~ for mp, mpclass in mps.items():
-# ~ mpclass = mps['Abbott, Ms Diane ']
-    # ~ #if mpclass.total_donations() >= 100000:
-# ~ print(mpclass.name)
-# ~ print(mpclass.party)
-# ~ print(mpclass.constituency)
-# ~ for donation in mpclass.donations:
-    # ~ print(donation['amount'])
-# ~ print(f'Total: £{mpclass.total_donations()}\n')
-# ~ print(mpclass.donations[0]['hours'])
-
+print(f"Of {len(mps)} MPs, {error_count} contain missmatched hours.\n")
+print("The MPs with errors are listed below.")
+for name, errors in dict(sorted(error_mps.items(),key= lambda x:x[1])).items():
+    print(f"{name.strip()}: {errors}")
 
 
 #pickle_io('MP_Object_Dict', data = mps, save = True)
