@@ -21,11 +21,12 @@ class MP:
         self.url = ''
         self.donations = []
 
-    def add_donation(self, amount, interest_type, date, hours):
+    def add_donation(self, amount, interest_type, date, hours, text_):
         self.donations.append({"amount": amount,
                                "interest type": interest_type, 
                                "date": date,
-                               "hours": hours})
+                               "hours": hours,
+                               "text": text_})
 
     def total_donations(self):
         total = 0
@@ -62,9 +63,10 @@ def get_header_and_info(tag):
     This function returns true for indented elements and for the numbered 
     headers without returning duplicate items when tagged as 'strong'.
     """
+    classes = ['indent', 'indent2']
     if tag is None:
         return False
-    elif tag.name == 'p' and any(cls in ['indent', 'indent2'] for cls in tag.get('class', [])):
+    elif tag.name == 'p' and any(c in classes for c in tag.get('class', [])):
         return True
     elif tag.name != 'strong':
         header_pattern = '^\d{1,2}\. '
@@ -77,7 +79,7 @@ def find_hours(string):
     # Determine if the string contains a unit of time appended by a frequency
     #   and a time period. 
     time_unit = r"(hr|hrs|hour|hours|min|mins|minute|minutes)"
-    frequency = r"(a|per|each)"
+    frequency = r"(a|per|each|every)"
     period = r"(week|month|quarter|year)"
     money = r"(\£\d{1,3}(?:,\d{3})*)"
     t_regex = re.compile(r"\d* " + time_unit + " " + frequency + " " + period)
@@ -106,25 +108,26 @@ def find_hours(string):
     else:
         return None
 
-def get_total_from_monthly_or_quarterly(text):
+def get_annual_total(text):
     """
     This function takes in a string containing a date range and a monthly 
     income, extracts the start and end dates, and calculates the total income 
     for the given date range.
     """
+    
     # Find the start and end dates in the date range string
-    start_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
-    end_date_match = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", 
-                                text[start_date_match.end():text.find('£')])
-    if end_date_match:
-        end_date = parse(end_date_match.group(1))
-        date_received = end_date_match.group(1)
+    date_regex = r"(\d{1,2} [A-Za-z]{3,9} \d{4})"
+    s_d_match = re.search(date_regex, text)
+    e_d_match = re.search(date_regex, text[s_d_match.end():text.find('£')])
+    if e_d_match:
+        end_date = parse(e_d_match.group(1))
+        date_received = e_d_match.group(1)
         #print('end date matched.') # Debugging
     else:
         end_date = parse("01 May 2022")
         date_received = "01 May 2022"
         
-    written_sd = parse(start_date_match.group(1))
+    written_sd = parse(s_d_match.group(1))
     session_sd = parse("01 May 2021")
     start_date = session_sd if session_sd >= written_sd else written_sd
     #print(start_date) # Debugging
@@ -141,7 +144,8 @@ def get_total_from_monthly_or_quarterly(text):
     income = float(income_match.group(1).replace(',', '')[1:])
 
     # Calculate the total income
-    if any(x in text.lower() for x in ['a quarter', 'quarterly', 'every three months']):
+    quarter_synonyms = ['a quarter', 'quarterly', 'every three months']
+    if any(phrase in text.lower() for phrase in quarter_synonyms):
         total_income = round(income * ((end_date - start_date).days / 91.3), 2)
     else:
         total_income = round(income * ((end_date - start_date).days / 30.4), 2)
@@ -175,6 +179,8 @@ def webscrape_freebies(name, url):
         amount = 0
         text = info.text
         tl = text.lower()
+        yr_synonyms = ['annual', 'yearly', 'a year', 'per annum']
+        has_year = any(x in tl for x in yr_synonyms)
         # Print numbered headers.
         if text[0].isalnum() and text[1] == '.':
             if ':' in text:
@@ -188,16 +194,16 @@ def webscrape_freebies(name, url):
         elif 'total' in tl and tl[tl.find("total"):].find('£') != -1:
             tot_indx = tl.find("total")
             find_p = text[tot_indx:].find('£')
-            end_indx = re.search(r"[^1234567890,.£]",
-                                            text[tot_indx + find_p:]).start()
+            not_money = r"[^1234567890,.£]"
+            end_indx = re.search(not_money, text[tot_indx + find_p:]).start()
             tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
             amount = ''.join([c for c in tot if c in '1234567890.']).strip('.')
             print(f"£_{amount} (Suspected total)") # Printing
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
             date_received = date_received.group(1)
         # Locate date ranges with monthly pay and calculate an annual total.
-        elif all(x in tl for x in ['from','until','£']) and not any(x in tl for x in ['annual', 'yearly', 'a year', 'per annum']):
-            total_value, date_received = get_total_from_monthly_or_quarterly(text)
+        elif all(x in tl for x in ['from','until','£']) and not has_year:
+            total_value, date_received = get_annual_total(text)
             print(f"£_{total_value} (Calculated total)") # Printing
             amount = total_value
         # Locate all other monetary sums and print them.
@@ -209,16 +215,17 @@ def webscrape_freebies(name, url):
             #print(info.text) # Debugging
             for word in words_in_info:
                 if '£' in word:
-                    total_value = ''.join([c for c in word if c in 
-                                                    '1234567890.']).strip('.')
+                    val_string = [c for c in word if c in '1234567890.']
+                    total_value = float(''.join(val_string).strip('.'))
                     print(f"£_{total_value}") # Printing
-                    amount += float(total_value)
+                    amount += total_value
         if amount:
             hours = find_hours(text)
             donations.append({'amount': amount,
                               'interest type': interest_type,
                               'date': date_received,
-                              'hours': hours})
+                              'hours': hours,
+                              'text': text})
     # There are 10 types of financial interests that need to be declared.
     # https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
     return donations
@@ -269,18 +276,6 @@ mps = pickle_io('MP_Object_Dict', load = True)
 
 #### WIP
 
-# Update donations to include new calculation logic and hours attribute.
-# ~ for name, link in mp_finances_link_dic.items():
-    # ~ mps[name].donations = []
-    # ~ donations = webscrape_freebies(name, link)
-    # ~ for donation in donations:
-        # ~ mps[name].add_donation(donation['amount'], 
-                               # ~ donation['interest type'],
-                               # ~ donation['date'],
-                               # ~ donation['hours'])
-    # ~ print(f"Saving new donation data for {name}...")
-    # ~ pickle_io('MP_Object_Dict', data = mps, save = True)
-
 # Finding hours errors
 error_mps = {}
 error_count = 0
@@ -291,6 +286,8 @@ for mp in mps:
         if isinstance(donation['hours'], str):
             has_error = True
             mp_errors += 1
+            print(mp)
+            print(donation['amount'])
     if has_error:
         error_count += 1
         error_mps[mp] = mp_errors
@@ -298,8 +295,43 @@ for mp in mps:
 print(f"Of {len(mps)} MPs, {error_count} contain missmatched hours.\n")
 print("The MPs with errors are listed below.")
 for name, errors in dict(sorted(error_mps.items(),key= lambda x:x[1])).items():
-    print(f"{name.strip()}: {errors}")
+    print(f"\n\n{name.strip()}: {errors}")
+    for donation in mps[name].donations:
+        if isinstance(donation['hours'], str):
+            print(donation['text'])
+            print()
 
-
-#pickle_io('MP_Object_Dict', data = mps, save = True)
+print('The following are donations that have bugged to negative value.')
+for mp in mps:
+    has_negative_donation = False
+    negative_donations = []
+    for donation in mps[mp].donations:
+        if float(donation['amount']) < 0:
+            negative_donations.append(donation['amount'])
+            has_negative_donation = True
+    if has_negative_donation:
+        print(mp)
+        for donation in negative_donations:
+            print(donation)
+# Update donations.
+# ~ for name, link in mp_finances_link_dic.items():
+    # ~ if name in error_mps:
+        # ~ print(name)
+        # ~ mps[name].donations = []
+        # ~ donations = webscrape_freebies(name, link)
+        # ~ for donation in donations:
+            # ~ mps[name].add_donation(donation['amount'], 
+                                   # ~ donation['interest type'],
+                                   # ~ donation['date'],
+                                   # ~ donation['hours'],
+                                   # ~ donation['text'])
+        # ~ for donation in mps[name].donations:
+            # ~ if isinstance(donation['hours'], str):
+                # ~ print(donation['amount'])
+                # ~ print(donation['hours'])
+                # ~ print()
+                # ~ print(donation['text'])
+            
+        # ~ print(f"Saving new donation data for {name}...")
+        # ~ pickle_io('MP_Object_Dict', data = mps, save = True)
 
