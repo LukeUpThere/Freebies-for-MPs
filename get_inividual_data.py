@@ -116,13 +116,16 @@ def get_annual_total(text):
     """
     
     # Find the start and end dates in the date range string
-    date_regex = r"(\d{1,2} [A-Za-z]{3,9} \d{4})"
-    s_d_match = re.search(date_regex, text)
+    date_regex = r"(\d{0,2} *[A-Za-z]{3,9} \d{4})"
+    s_d_regex = re.compile(r"[fF]rom:* " + date_regex) 
+    s_d_match = re.search(s_d_regex, text)
+    ### Need to edit to fix issue where there is no s_d_match.
+    ### (when sd is written without date eg. January 2020)
     e_d_match = re.search(date_regex, text[s_d_match.end():text.find('£')])
     if e_d_match:
         end_date = parse(e_d_match.group(1))
         date_received = e_d_match.group(1)
-        #print('end date matched.') # Debugging
+        # ~ print('end date matched.') # Debugging
     else:
         end_date = parse("01 May 2022")
         date_received = "01 May 2022"
@@ -130,13 +133,18 @@ def get_annual_total(text):
     written_sd = parse(s_d_match.group(1))
     session_sd = parse("01 May 2021")
     start_date = session_sd if session_sd >= written_sd else written_sd
-    #print(start_date) # Debugging
+    # ~ print(f"Start date: {start_date}") # Debugging
+    # ~ print(f"End date: {end_date}") # Debugging
+    
+    # Catch edge cases where dates are out of range of the financial year
+    if start_date > end_date:
+        return (0, None)
     
     # Find the monthly income
     income_match = re.search(r"(\£\d{1,3}(?:,\d{3})*)", text)
     if income_match:
         income = float(income_match.group(1).replace(',', '')[1:])
-        #print(f"income: {income}") # Debugging
+        print(f"income: {income}") # Debugging
     else:
         # handle the case where no match was found
         return ('error with income_match', date_received)
@@ -302,20 +310,46 @@ for name, errors in dict(sorted(error_mps.items(),key= lambda x:x[1])).items():
             print()
 
 print('The following are donations that have bugged to negative value.')
+neg_mps = []
 for mp in mps:
-    has_negative_donation = False
     negative_donations = []
     for donation in mps[mp].donations:
         if float(donation['amount']) < 0:
             negative_donations.append(donation['amount'])
-            has_negative_donation = True
-    if has_negative_donation:
+    if negative_donations:
+        neg_mps.append(mp)
         print(mp)
         for donation in negative_donations:
             print(donation)
+
+# ~ for name, link in mp_finances_link_dic.items():
+    # ~ if name in neg_mps:
+        # ~ print(name)
+        # ~ mps[name].donations = []
+        # ~ donations = webscrape_freebies(name, link)
+        # ~ for donation in donations:
+            # ~ mps[name].add_donation(donation['amount'], 
+                                   # ~ donation['interest type'],
+                                   # ~ donation['date'],
+                                   # ~ donation['hours'],
+                                   # ~ donation['text'])
+
+# ~ print('The following are donations that have bugged to negative value.')
+# ~ neg_mps = []
+# ~ for mp in mps:
+    # ~ negative_donations = []
+    # ~ for donation in mps[mp].donations:
+        # ~ if float(donation['amount']) < 0:
+            # ~ negative_donations.append(donation)
+    # ~ if negative_donations:
+        # ~ neg_mps.append(mp)
+        # ~ print(mp)
+        # ~ for donation in negative_donations:
+            # ~ print(donation['amount'])
+            # ~ print(donation['text'])
+
 # Update donations.
 # ~ for name, link in mp_finances_link_dic.items():
-    # ~ if name in error_mps:
         # ~ print(name)
         # ~ mps[name].donations = []
         # ~ donations = webscrape_freebies(name, link)
