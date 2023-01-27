@@ -174,7 +174,8 @@ def webscrape_freebies(name, url):
     driver.get(url)
     driver.implicitly_wait(5)
     soup = BeautifulSoup(driver.page_source, 'html.parser')
-    
+    driver.quit()
+
     # Setup a running tally and a list of elements to search.
     grand_total = 0.0
     donations = []
@@ -187,8 +188,7 @@ def webscrape_freebies(name, url):
         amount = 0
         text = info.text
         tl = text.lower()
-        yr_synonyms = ['annual', 'yearly', 'a year', 'per annum']
-        has_year = any(x in tl for x in yr_synonyms)
+        
         # Print numbered headers.
         if text[0].isalnum() and text[1] == '.':
             if ':' in text:
@@ -210,10 +210,15 @@ def webscrape_freebies(name, url):
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
             date_received = date_received.group(1)
         # Locate date ranges with monthly pay and calculate an annual total.
-        elif all(x in tl for x in ['from','until','£']) and not has_year:
-            total_value, date_received = get_annual_total(text)
-            print(f"£_{total_value} (Calculated total)") # Printing
-            amount = total_value
+        elif all(x in tl for x in ['from','until','£']):
+            yr_syn = ['annual', 'yearly', 'a year', 'per annum', 'per year']
+            has_year = any(x in tl for x in yr_syn)
+            year_regex = r"(a year|per year|yearly|per annum|annually)"
+            has_hr_per_yr = re.search(r"\d{1,3} hours " + year_regex, tl)
+            if not has_year or has_hr_per_yr:
+                total_value, date_received = get_annual_total(text)
+                print(f"£_{total_value} (Calculated total)") # Printing
+                amount = total_value
         # Locate all other monetary sums and print them.
         else:
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
@@ -294,8 +299,8 @@ for mp in mps:
         if isinstance(donation['hours'], str):
             has_error = True
             mp_errors += 1
-            print(mp)
-            print(donation['amount'])
+            # ~ print(mp)
+            # ~ print(donation['amount'])
     if has_error:
         error_count += 1
         error_mps[mp] = mp_errors
@@ -309,50 +314,12 @@ for name, errors in dict(sorted(error_mps.items(),key= lambda x:x[1])).items():
             print(donation['text'])
             print()
 
-print('The following are donations that have bugged to negative value.')
-neg_mps = []
-for mp in mps:
-    negative_donations = []
-    for donation in mps[mp].donations:
-        if float(donation['amount']) < 0:
-            negative_donations.append(donation['amount'])
-    if negative_donations:
-        neg_mps.append(mp)
-        print(mp)
-        for donation in negative_donations:
-            print(donation)
-
-# ~ for name, link in mp_finances_link_dic.items():
-    # ~ if name in neg_mps:
-        # ~ print(name)
-        # ~ mps[name].donations = []
-        # ~ donations = webscrape_freebies(name, link)
-        # ~ for donation in donations:
-            # ~ mps[name].add_donation(donation['amount'], 
-                                   # ~ donation['interest type'],
-                                   # ~ donation['date'],
-                                   # ~ donation['hours'],
-                                   # ~ donation['text'])
-
-# ~ print('The following are donations that have bugged to negative value.')
-# ~ neg_mps = []
-# ~ for mp in mps:
-    # ~ negative_donations = []
-    # ~ for donation in mps[mp].donations:
-        # ~ if float(donation['amount']) < 0:
-            # ~ negative_donations.append(donation)
-    # ~ if negative_donations:
-        # ~ neg_mps.append(mp)
-        # ~ print(mp)
-        # ~ for donation in negative_donations:
-            # ~ print(donation['amount'])
-            # ~ print(donation['text'])
-
 # Update donations.
-# ~ for name, link in mp_finances_link_dic.items():
-        # ~ print(name)
+# ~ for name in mps:
+    # ~ if name == 'Beresford, Sir Paul ':
+        # ~ #print(name)
         # ~ mps[name].donations = []
-        # ~ donations = webscrape_freebies(name, link)
+        # ~ donations = webscrape_freebies(name, mps[name].url)
         # ~ for donation in donations:
             # ~ mps[name].add_donation(donation['amount'], 
                                    # ~ donation['interest type'],
