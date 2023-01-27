@@ -78,9 +78,9 @@ def get_header_and_info(tag):
 def find_hours(string):
     # Determine if the string contains a unit of time appended by a frequency
     #   and a time period. 
-    time_unit = r"(hr|hrs|hour|hours|min|mins|minute|minutes)"
+    time_unit = r"(hr|hrs|hour|hours|min|mins|minute|minutes):*"
     frequency = r"(a|per|each|every)"
-    period = r"(week|month|quarter|year)"
+    period = r"(day|week|month|quarter|year)"
     money = r"(\£\d{1,3}(?:,\d{3})*)"
     t_regex = re.compile(r"\d* " + time_unit + " " + frequency + " " + period)
     m_regex = re.compile(money + " " + frequency + " " + period) 
@@ -96,6 +96,7 @@ def find_hours(string):
     if is_hrs_per_time_unit and is_money_per_time_unit:
         if is_hrs_per_time_unit.group(3) != is_money_per_time_unit.group(3):
             return "Error: Frequency of payments and hours don't match."
+            
     
     # Calculate and return the hours worked.
     if match:
@@ -205,7 +206,7 @@ def webscrape_freebies(name, url):
             not_money = r"[^1234567890,.£]"
             end_indx = re.search(not_money, text[tot_indx + find_p:]).start()
             tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
-            amount = ''.join([c for c in tot if c in '1234567890.']).strip('.')
+            amount = float(''.join([c for c in tot if c in '1234567890.']).strip('.'))
             print(f"£_{amount} (Suspected total)") # Printing
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
             date_received = date_received.group(1)
