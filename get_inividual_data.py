@@ -192,15 +192,12 @@ def webscrape_freebies(name, url):
         
         # Print numbered headers.
         if re.match(r"\d{1,2}\..*", text):
-        # ~ if text[0].isalnum() and text[1] == '.':
             if ':' in text:
                 print(text[:text.find(':')])
                 interest_type = text[:text.find(':')]
-            # Could probably end this here as if ':' isn't found, find will
-            # return -1 which would be the end of the string anyway.
-            # ~ else:
-                # ~ print(text)
-                # ~ interest_type = text
+            else:
+                print(text)
+                interest_type = text
             continue
 
         # Locate and print stated totals.
@@ -334,18 +331,18 @@ for name in mps:
         #print(name)
         mps[name].donations = []
         donations = webscrape_freebies(name, mps[name].url)
-        for donation in donations:
-            mps[name].add_donation(donation['amount'], 
-                                   donation['interest type'],
-                                   donation['date'],
-                                   donation['hours'],
-                                   donation['text'])
-        for donation in mps[name].donations:
-            if isinstance(donation['hours'], str):
-                print(donation['amount'])
-                print(donation['hours'])
-                print()
-                print(donation['text'])
+        # ~ for donation in donations:
+            # ~ mps[name].add_donation(donation['amount'], 
+                                   # ~ donation['interest type'],
+                                   # ~ donation['date'],
+                                   # ~ donation['hours'],
+                                   # ~ donation['text'])
+        # ~ for donation in mps[name].donations:
+            # ~ if isinstance(donation['hours'], str):
+                # ~ print(donation['amount'])
+                # ~ print(donation['hours'])
+                # ~ print()
+                # ~ print(donation['text'])
             
         # ~ print(f"Saving new donation data for {name}...")
         # ~ pickle_io('MP_Object_Dict', data = mps, save = True)
