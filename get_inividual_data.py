@@ -191,25 +191,37 @@ def webscrape_freebies(name, url):
         tl = text.lower()
         
         # Print numbered headers.
-        if text[0].isalnum() and text[1] == '.':
+        if re.match(r"\d{1,2}\..*", text):
+        # ~ if text[0].isalnum() and text[1] == '.':
             if ':' in text:
                 print(text[:text.find(':')])
                 interest_type = text[:text.find(':')]
-            else:
-                print(text)
-                interest_type = text
+            # Could probably end this here as if ':' isn't found, find will
+            # return -1 which would be the end of the string anyway.
+            # ~ else:
+                # ~ print(text)
+                # ~ interest_type = text
             continue
+
         # Locate and print stated totals.
         elif 'total' in tl and tl[tl.find("total"):].find('£') != -1:
-            tot_indx = tl.find("total")
-            find_p = text[tot_indx:].find('£')
-            not_money = r"[^1234567890,.£]"
-            end_indx = re.search(not_money, text[tot_indx + find_p:]).start()
-            tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
-            amount = float(''.join([c for c in tot if c in '1234567890.']).strip('.'))
-            print(f"£_{amount} (Suspected total)") # Printing
-            date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
+            ## Optimised code: 2 line regex
+            total_match = re.search(r"total.*£(\d{1,3}(?:,\d{3})*)", tl)
+            amount = float(total_match.group(1).replace(',',''))
+
+            ## Silly old code: 6 line '.find()' madness.
+            # ~ tot_indx = tl.find("total")
+            # ~ find_p = text[tot_indx:].find('£')
+            # ~ not_money = r"[^1234567890,.£]"
+            # ~ end_indx = re.search(not_money, text[tot_indx + find_p:]).start()
+            # ~ tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
+            # ~ amount = float(''.join([c for c in tot if c in '1234567890.']).strip('.'))
+
+            print(f"£{amount} (Stated Total)") # Printing
+
+            date_received = re.search(r"(\d{1,2} [a-z]{3,9} \d{4})", tl)
             date_received = date_received.group(1)
+
         # Locate date ranges with monthly pay and calculate an annual total.
         elif all(x in tl for x in ['from','until','£']):
             yr_syn = ['annual', 'yearly', 'a year', 'per annum', 'per year']
@@ -217,9 +229,10 @@ def webscrape_freebies(name, url):
             year_regex = r"(a year|per year|yearly|per annum|annually)"
             has_hr_per_yr = re.search(r"\d{1,3} hours " + year_regex, tl)
             if not has_year or has_hr_per_yr:
-                total_value, date_received = get_annual_total(text)
-                print(f"£_{total_value} (Calculated total)") # Printing
-                amount = total_value
+                amount, date_received = get_annual_total(text)
+                
+                print(f"£{amount} (Calculated Total)") # Printing
+
         # Locate all other monetary sums and print them.
         else:
             date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
@@ -316,23 +329,23 @@ for name, errors in dict(sorted(error_mps.items(),key= lambda x:x[1])).items():
             print()
 
 # Update donations.
-# ~ for name in mps:
-    # ~ if name == 'Beresford, Sir Paul ':
-        # ~ #print(name)
-        # ~ mps[name].donations = []
-        # ~ donations = webscrape_freebies(name, mps[name].url)
-        # ~ for donation in donations:
-            # ~ mps[name].add_donation(donation['amount'], 
-                                   # ~ donation['interest type'],
-                                   # ~ donation['date'],
-                                   # ~ donation['hours'],
-                                   # ~ donation['text'])
-        # ~ for donation in mps[name].donations:
-            # ~ if isinstance(donation['hours'], str):
-                # ~ print(donation['amount'])
-                # ~ print(donation['hours'])
-                # ~ print()
-                # ~ print(donation['text'])
+for name in mps:
+    if name == 'Beresford, Sir Paul ':
+        #print(name)
+        mps[name].donations = []
+        donations = webscrape_freebies(name, mps[name].url)
+        for donation in donations:
+            mps[name].add_donation(donation['amount'], 
+                                   donation['interest type'],
+                                   donation['date'],
+                                   donation['hours'],
+                                   donation['text'])
+        for donation in mps[name].donations:
+            if isinstance(donation['hours'], str):
+                print(donation['amount'])
+                print(donation['hours'])
+                print()
+                print(donation['text'])
             
         # ~ print(f"Saving new donation data for {name}...")
         # ~ pickle_io('MP_Object_Dict', data = mps, save = True)
