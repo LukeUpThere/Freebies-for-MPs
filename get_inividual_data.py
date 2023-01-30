@@ -192,12 +192,13 @@ def webscrape_freebies(name, url):
         
         # Print numbered headers.
         if re.match(r"\d{1,2}\..*", text):
-            if ':' in text:
-                print(text[:text.find(':')])
-                interest_type = text[:text.find(':')]
-            else:
-                print(text)
-                interest_type = text
+            interest_type = text[:text.find(':')] if ':' in text else text
+            print(interest_type)
+                # ~ print(text[:text.find(':')])
+                # ~ interest_type = text[:text.find(':')]
+            # ~ else:
+                # ~ print(text)
+                # ~ interest_type = text
             continue
 
         # Locate and print stated totals.
