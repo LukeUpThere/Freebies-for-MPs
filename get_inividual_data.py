@@ -77,37 +77,47 @@ def get_header_and_info(tag):
 
 def find_hours(string):
     # Determine if the string contains a unit of time appended by a frequency
-    #   and a time period. 
-    time_unit = r"(hr|hrs|hour|hours|min|mins|minute|minutes):*"
+    #   and a time period.
+    time_unit = r"(hr|hrs|hour|hours|min|mins|minute|minutes)"
     frequency = r"(a|per|each|every)"
     period = r"(day|week|month|quarter|year)"
-    money = r"(\£\d{1,3}(?:,\d{3})*)"
     t_regex = re.compile(r"\d* " + time_unit + " " + frequency + " " + period)
-    m_regex = re.compile(money + " " + frequency + " " + period) 
     is_hrs_per_time_unit = re.search(t_regex, string)
-    is_money_per_time_unit = re.search(m_regex, string)
     
     # Find hours worked
-    hours_regex = re.compile(r"Hours:\s*([\d\.]+)\s*(hr|hrs|mins|min)")
+    # This section may not work correctly when hours are written as
+    #   "2 hours 30 mins". Updated RegEx will be needed.
+    new_hours_regex = r"([\d\.]+)\s*" + time_unit
+
+    
+    hours_regex = re.compile(r"Hours:\s*([\d\.]+)\s*" + time_unit)
     match = hours_regex.search(string)
     
-    # If the frequency of the payment doesn't match the frequency of the hours
-    #   worked, return an error message.
-    if is_hrs_per_time_unit and is_money_per_time_unit:
-        if is_hrs_per_time_unit.group(3) != is_money_per_time_unit.group(3):
-            return "Error: Frequency of payments and hours don't match."
-            
-    
-    # Calculate and return the hours worked.
+    # Convert hrs and mins to a floating point decimal (ie. 75min => 1.25)
     if match:
         hours = match.group(1)
         unit = match.group(2)
-        if unit == "hrs" or unit == "hr":
-            return float(hours)
-        elif unit == "mins" or unit == "min":
-            return float(hours) / 60
+        if unit == r"(hr|hrs|hour|hours)":
+            hours = float(hours)
+        elif unit == r"(min|mins|minute|minutes)":
+            hours = float(hours) / 60
     else:
         return None
+
+    # Calculate the hours per year, based on the stated period of hours worked.
+    if is_hrs_per_time_unit:
+        hours_period = is_hrs_per_time_unit.group(3)
+        hours_period_multipliers = {'year':1,
+                                    'quarter':4,
+                                    'month':12,
+                                    'week':52,
+                                    'day':365}
+        return hours * hours_period_multipliers[hours_period]
+    elif hours:
+        return hours
+    else:
+        return "is_hrs_per_time_unit fail"
+    
 
 def get_annual_total(text):
     """
@@ -121,7 +131,7 @@ def get_annual_total(text):
     s_d_regex = re.compile(r"[fF]rom:* " + date_regex) 
     s_d_match = re.search(s_d_regex, text)
     ### Need to edit to fix issue where there is no s_d_match.
-    ### (when sd is written without date eg. January 2020)
+    ### (when sd is written without date eg. January 2020) fixed?
     e_d_match = re.search(date_regex, text[s_d_match.end():text.find('£')])
     if e_d_match:
         end_date = parse(e_d_match.group(1))
@@ -182,7 +192,7 @@ def webscrape_freebies(name, url):
     donations = []
     infos = soup.find_all(get_header_and_info)
     
-    print('\n' + name)
+    print('webscrape_freebies: ________________\n' + name)
     interest_type = ''
     for info in infos:
         # ~ print(info) # Debugging
@@ -193,12 +203,7 @@ def webscrape_freebies(name, url):
         # Print numbered headers.
         if re.match(r"\d{1,2}\..*", text):
             interest_type = text[:text.find(':')] if ':' in text else text
-            print(interest_type)
-                # ~ print(text[:text.find(':')])
-                # ~ interest_type = text[:text.find(':')]
-            # ~ else:
-                # ~ print(text)
-                # ~ interest_type = text
+            print(f"Interest type has been set to '{interest_type}'")
             continue
 
         # Locate and print stated totals.
@@ -206,14 +211,6 @@ def webscrape_freebies(name, url):
             ## Optimised code: 2 line regex
             total_match = re.search(r"total.*£(\d{1,3}(?:,\d{3})*)", tl)
             amount = float(total_match.group(1).replace(',',''))
-
-            ## Silly old code: 6 line '.find()' madness.
-            # ~ tot_indx = tl.find("total")
-            # ~ find_p = text[tot_indx:].find('£')
-            # ~ not_money = r"[^1234567890,.£]"
-            # ~ end_indx = re.search(not_money, text[tot_indx + find_p:]).start()
-            # ~ tot = text[tot_indx + find_p + 1:tot_indx + find_p + end_indx]
-            # ~ amount = float(''.join([c for c in tot if c in '1234567890.']).strip('.'))
 
             print(f"£{amount} (Stated Total)") # Printing
 
@@ -233,7 +230,7 @@ def webscrape_freebies(name, url):
 
         # Locate all other monetary sums and print them.
         else:
-            date_received = re.search(r"(\d{1,2} [A-Za-z]{3,9} \d{4})", text)
+            date_received = re.search(r"(\d{1,2} [a-z]{3,9} \d{4})", tl)
             if date_received:
                 date_received = date_received.group(1)
             words_in_info = info.text.split(' ')
@@ -254,6 +251,7 @@ def webscrape_freebies(name, url):
     # There are 10 types of financial interests that need to be declared.
     # https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
     return donations
+
 
 def match_mps_data():
     """
