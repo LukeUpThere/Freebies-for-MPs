@@ -5,9 +5,9 @@ A project that web-scrapes publicly available 'Financial Interest' information a
 - Each MP page is then webscraped using Selenium and BeautifulSoup. Data is then applied to MP objects held in a dictionary.
 - MatPlotLib and general data analysis can then be used to see broader trends across this dataset.
 ---
-In the 2021 to 2022 tax year, almost 10 million pounds were accepted across the UK House of Commons in MP financial interests. Of this, nearly three quarters (75%) went to Conservative MP's, despite them only holding  just over half (54%) of the HoC seats.
+In the 2021 to 2022 tax year, almost 10 million pounds were accepted across the UK House of Commons in MP financial interests. Of this, nearly three quarters (75%) went to Conservative MP's, despite them only holding  just over half (54%) of the House of Commons seats.
 
-On average, an MP in this tax year received £15,400 in financial interests. However, both the average Conservative an Liberal Democrat MPs recived over 30% more than that (£20,887 and £20,302 respectively).
+On average, an MP in this tax year received £15,400 in financial interests. However, both the average Conservative and Liberal Democrat MPs recived over 30% more than that (£20,887 and £20,302 respectively).
 
 The four MP's with the highest financial interests were all members of the conservative party, and combined recieved over three million pounds. Among them are former PM **Theresa May** who had stepped down shortly before the tax year began, and **Sir Geoffrey Cox**.
 
