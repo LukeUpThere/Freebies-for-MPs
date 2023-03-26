@@ -93,13 +93,13 @@ def find_hours(string):
     hours_regex = re.compile(r"Hours:\s*([\d\.]+)\s*" + time_unit)
     match = hours_regex.search(string)
     
-    # Convert hrs and mins to a floating point decimal (ie. 75min => 1.25)
+    # Convert hrs and mins to a floating point decimal (ie. 75min = 1.25)
     if match:
         hours = match.group(1)
         unit = match.group(2)
-        if unit == r"(hr|hrs|hour|hours)":
+        if unit in ['hr', 'hrs', 'hour', 'hours']:
             hours = float(hours)
-        elif unit == r"(min|mins|minute|minutes)":
+        elif unit in ['min', 'mins', 'minute', 'minutes']:
             hours = float(hours) / 60
     else:
         return None
@@ -152,10 +152,10 @@ def get_annual_total(text):
         return (0, None)
     
     # Find the monthly income
-    income_match = re.search(r"(\£\d{1,3}(?:,\d{3})*)", text)
+    income_match = re.search(r"£(\d{1,}(?:,\d{3})*(?:\.\d{2})?)", text)
     if income_match:
         income = float(income_match.group(1).replace(',', '')[1:])
-        print(f"income: {income}") # Debugging
+        #print(f"income: {income}") # Debugging
     else:
         # handle the case where no match was found
         return ('error with income_match', date_received)
@@ -199,34 +199,34 @@ def webscrape_freebies(name, url):
         amount = 0
         text = info.text
         tl = text.lower()
+        yr_syn = ['annual', 'yearly', 'a year', 'per annum', 'per year']
+        has_year = any(x in tl for x in yr_syn)
         
         # Print numbered headers.
         if re.match(r"\d{1,2}\..*", text):
             interest_type = text[:text.find(':')] if ':' in text else text
-            print(f"Interest type has been set to '{interest_type}'")
+            # ~ print(f"Interest type has been set to '{interest_type}'")
             continue
 
         # Locate and print stated totals.
+        # if 'total' is in the text and '£' is not present after 'total'
         elif 'total' in tl and tl[tl.find("total"):].find('£') != -1:
-            ## Optimised code: 2 line regex
             total_match = re.search(r"total.*£(\d{1,3}(?:,\d{3})*)", tl)
             amount = float(total_match.group(1).replace(',',''))
 
-            print(f"£{amount} (Stated Total)") # Printing
+            # ~ print(f"£{amount} (Stated Total)") # Printing
 
             date_received = re.search(r"(\d{1,2} [a-z]{3,9} \d{4})", tl)
             date_received = date_received.group(1)
 
         # Locate date ranges with monthly pay and calculate an annual total.
-        elif all(x in tl for x in ['from','until','£']):
-            yr_syn = ['annual', 'yearly', 'a year', 'per annum', 'per year']
-            has_year = any(x in tl for x in yr_syn)
+        elif all(x in tl for x in ['from','until','£']) and not has_year:
             year_regex = r"(a year|per year|yearly|per annum|annually)"
             has_hr_per_yr = re.search(r"\d{1,3} hours " + year_regex, tl)
-            if not has_year or has_hr_per_yr:
+            if has_hr_per_yr:
                 amount, date_received = get_annual_total(text)
                 
-                print(f"£{amount} (Calculated Total)") # Printing
+                # ~ print(f"£{amount} (Calculated Total)") # Printing
 
         # Locate all other monetary sums and print them.
         else:
@@ -239,7 +239,7 @@ def webscrape_freebies(name, url):
                 if '£' in word:
                     val_string = [c for c in word if c in '1234567890.']
                     total_value = float(''.join(val_string).strip('.'))
-                    print(f"£_{total_value}") # Printing
+                    # ~ print(f"£_{total_value}") # Printing
                     amount += total_value
         if amount:
             hours = find_hours(text)
@@ -252,6 +252,68 @@ def webscrape_freebies(name, url):
     # https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
     return donations
 
+def textscrape_freebies(name):
+    """
+    Scrapes a webpage for financial interests of a member of parliament and 
+    returns details about each donation in the form of a list of dictionaries.
+    :param name: name of the member of parliament
+    :return: list of donations received
+    """
+    donations = []
+    interest_type = ''
+    for donation in mps[name].donations:
+        amount = 0
+        text = donation['text']
+        tl = text.lower()
+        yr_syn = ['annual', 'yearly', 'a year', 'per annum', 'per year']
+        has_year = any(x in tl for x in yr_syn)
+        
+        # Print numbered headers.
+        if re.match(r"\d{1,2}\..*", text):
+            interest_type = text[:text.find(':')] if ':' in text else text
+            #print(f"Interest type has been set to '{interest_type}'")
+            continue
+
+        # Locate and print stated totals.
+        elif 'total' in tl and tl[tl.find("total"):].find('£') != -1:
+            ## Optimised code: 2 line regex
+            total_match = re.search(r"total.*£(\d{1,3}(?:,\d{3})*)", tl)
+            amount = float(total_match.group(1).replace(',',''))
+
+            #print(f"£{amount} (Stated Total)") # Printing
+
+            date_received = re.search(r"(\d{1,2} [a-z]{3,9} \d{4})", tl)
+            date_received = date_received.group(1)
+
+        # Locate date ranges with monthly pay and calculate an annual total.
+        elif all(x in tl for x in ['from','until','£']) and not has_year:
+            year_regex = r"(a year|per year|yearly|per annum|annually)"
+            has_hr_per_yr = re.search(r"\d{1,3} hours " + year_regex, tl)
+            if has_hr_per_yr:
+                amount, date_received = get_annual_total(text)
+                
+                #print(f"£{amount} (Calculated Total)") # Printing
+
+        # Locate all other monetary sums and print them.
+        else:
+            date_received = re.search(r"(\d{1,2} [a-z]{3,9} \d{4})", tl)
+            if date_received:
+                date_received = date_received.group(1)
+            words_in_text = text.split(' ')
+            value_match = re.search(r"£(\d{1,}(?:,\d{3})*(?:\.\d{2})?)", tl)
+            amount = float(value_match.group(1).replace(',',''))
+                    #print(f"£_{total_value}") # Printing
+        
+        if amount:
+            hours = find_hours(text)
+            donations.append({'amount': amount,
+                              'interest type': interest_type,
+                              'date': date_received,
+                              'hours': hours,
+                              'text': text})
+    # There are 10 types of financial interests that need to be declared.
+    # https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
+    return donations
 
 def match_mps_data():
     """
@@ -281,68 +343,62 @@ def match_mps_data():
 
 ### MAIN CODE ###
 
-# Pickle load links
-mp_finances_link_dic = pickle_io(load=True, file_name = 'mp_finances_link_dic')
+# ~ # Pickle load links
+# ~ mp_finances_link_dic = pickle_io(load=True, file_name = 'mp_finances_link_dic')
 
-# Load CSV and get party and constituency data
-mp_party_constit = {}
-with open('mps.csv', 'r') as csvfile:
-    csv_reader = csv.reader(csvfile)
-    rows = [row for row in csv_reader]
-for row in rows:
-    mp_fl_names = (row[2], row[1])
-    mp_party_constit[mp_fl_names] = {'Party': row[3], 'Constituency': row[4]}
+# ~ # Load CSV and get party and constituency data
+# ~ mp_party_constit = {}
+# ~ with open('mps.csv', 'r') as csvfile:
+    # ~ csv_reader = csv.reader(csvfile)
+    # ~ rows = [row for row in csv_reader]
+# ~ for row in rows:
+    # ~ mp_fl_names = (row[2], row[1])
+    # ~ mp_party_constit[mp_fl_names] = {'Party': row[3], 'Constituency': row[4]}
+
+# Load MP Object dictionary from file
+mps = pickle_io('New_MP_Object_Dict', load = True)
 
 
-mps = pickle_io('MP_Object_Dict', load = True)
-# ~ match_mps_data()
+## Find and print average MP interest amount.
+donations = []
+for mp in mps.values():
+    donations.append(mp.total_donations())
+print(f"MP Average: {sum(donations)/len(donations)}")
+print(f"MP Total: {sum(donations)}\n")
+# Set up a list of parties
+for mp in mps.values():
+    if mp.party == 'Labour/Co-operative':
+        mp.party = 'Labour'
+parties = list({mps[mp].party for mp in mps})
+# Find average Party MP interest amount.
+party_averages = {}
+for party in parties:
+    donations = []
+    for mp in mps.values():
+        if mp.party == party:
+            donations.append(mp.total_donations())
+    party_averages[party] = [round(sum(donations)/len(donations)), round(sum(donations))]
+# Print values
+for party, amount in sorted(party_averages.items(), key=lambda item: item[1]):
+    print(f"{party} Average: {amount[0]}\n{party} Total: {amount[1]}\n")
 
-#### WIP
-
-# Finding hours errors
-error_mps = {}
-error_count = 0
-for mp in mps:
-    has_error = False
-    mp_errors = 0
-    for donation in mps[mp].donations:
-        if isinstance(donation['hours'], str):
-            has_error = True
-            mp_errors += 1
-            # ~ print(mp)
-            # ~ print(donation['amount'])
-    if has_error:
-        error_count += 1
-        error_mps[mp] = mp_errors
-
-print(f"Of {len(mps)} MPs, {error_count} contain missmatched hours.\n")
-print("The MPs with errors are listed below.")
-for name, errors in dict(sorted(error_mps.items(),key= lambda x:x[1])).items():
-    print(f"\n\n{name.strip()}: {errors}")
-    for donation in mps[name].donations:
-        if isinstance(donation['hours'], str):
-            print(donation['text'])
-            print()
-
+## Find 4 highest 'earners'
+mp_totals = {}
+for mp in mps.values():
+    mp_totals[mp.name] = (mp.total_donations(), mp.party)
+for mp, amount in sorted(mp_totals.items(), key=lambda item: item[1]):
+    print(f"{mp}, {amount[1]}: {amount[0]}")
+        
 # Update donations.
-for name in mps:
-    if name == 'Beresford, Sir Paul ':
-        #print(name)
-        mps[name].donations = []
-        donations = webscrape_freebies(name, mps[name].url)
-        # ~ for donation in donations:
-            # ~ mps[name].add_donation(donation['amount'], 
-                                   # ~ donation['interest type'],
-                                   # ~ donation['date'],
-                                   # ~ donation['hours'],
-                                   # ~ donation['text'])
-        # ~ for donation in mps[name].donations:
-            # ~ if isinstance(donation['hours'], str):
-                # ~ print(donation['amount'])
-                # ~ print(donation['hours'])
-                # ~ print()
-                # ~ print(donation['text'])
-            
-        # ~ print(f"Saving new donation data for {name}...")
-        # ~ pickle_io('MP_Object_Dict', data = mps, save = True)
-
+# ~ for name in mps:
+    # ~ #print(name)
+    # ~ donations = textscrape_freebies(name)
+    # ~ mps[name].donations = []
+    # ~ for donation in donations:
+        # ~ mps[name].add_donation(donation['amount'], 
+                               # ~ donation['interest type'],
+                               # ~ donation['date'],
+                               # ~ donation['hours'],
+                               # ~ donation['text'])
+    # ~ print(f"Saving new donation data for {name}...")
+    # ~ pickle_io('New_MP_Object_Dict', data = mps, save = True)
