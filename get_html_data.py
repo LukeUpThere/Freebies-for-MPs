@@ -43,7 +43,7 @@ for mp, link in mp_finances_link_dic.items():
     driver.implicitly_wait(10)
     
     # Save the page source to a file
-    with open(f'HTML Files/{mp}.html', 'w', encoding='utf-8') as file:
+    with open(f'HTML_Files/{mp}.html', 'w', encoding='utf-8') as file:
         file.write(driver.page_source)
 
     driver.quit()
