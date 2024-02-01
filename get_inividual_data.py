@@ -1,5 +1,6 @@
 # Gets financial data on each MP
 import os
+import time
 import pickle
 import csv
 from bs4 import BeautifulSoup
@@ -14,11 +15,11 @@ class MP:
     donations attributes. Provide methods to add a donation and calculate
     total donations received.
     """
-    def __init__(self, name, constituency = 'Unknown', party = 'Unknown'):
+    def __init__(self, name, constituency = 'Unknown', party = 'Unknown', url = ''):
         self.name = name
         self.constituency = constituency
         self.party = party
-        self.url = ''
+        self.url = url
         self.donations = []
 
     def add_donation(self, amount, interest_type, date, hours, text_):
@@ -315,45 +316,49 @@ def textscrape_freebies(name):
     # https://publications.parliament.uk/pa/cm201719/cmcode/1882/188204.htm
     return donations
 
-def match_mps_data():
-    """
-    Create a dictionary of MP objects and match the names to the CSV data.
-    Apply the CSV data to each object by adding the MP's Party and Constituency.
-    Also, Scrape the donations information and add it to each MP object and
-    save the updated object to the pickle file
-    """
-    for name, link in mp_finances_link_dic.items():
-        if name not in mps:
-            for names, detail in mp_party_constit.items():
-                if all(x in name for x in names):
-                    mps[name] = MP(name, detail['Constituency'], detail['Party'])
-                    print(f'{name} vs {names}: csv match')
-                    break
-                else:
-                    mps[name] = MP(name)
-                    print(f'{name} vs {names}: no csv match')
-            # Add donations to each MP
-            donations = webscrape_freebies(name, link)
-            for donation in donations:
-                mps[name].add_donation(donation['amount'], 
-                                       donation['interest type'],
-                                       donation['date'])
-        print('\n--Saving data--\n')
-        pickle_io('MP_Object_Dict', data = mps, save=True)
+def mp_generator(theyworkforyou_csv):
+    # Load CSV and get party and constituency data
+    unmatched_mps = []
+    mps = {}
+
+    with open(theyworkforyou_csv, 'r', encoding = 'utf-8') as csvfile:
+        csv_reader = csv.reader(csvfile)
+        next(csv_reader)
+        rows = list(csv_reader)
+
+    for row in rows:
+        mp_full_name = (row[1], row[2])
+        mp_party = row[3]
+        mp_constituency = row[4]
+        mps[mp_full_name] = MP(name=mp_full_name, party=mp_party, constituency=mp_constituency)
+
+    matched_mp_files = []  # Separate list to store matched file names
+
+    for file_name in os.listdir('HTML_Files'):
+        matched = False  # Flag to track whether the current file is matched
+        for mp_full_name, mp in mps.items():
+            if all(x in file_name for x in mp_full_name) and file_name not in matched_mp_files:
+                mp_url = os.path.join('HTML_Files', file_name)
+                mp.url = mp_url
+                matched = True
+                matched_mp_files.append(file_name)
+                break  # Exit the loop once a match is found
+        if not matched:
+            unmatched_mps.append(file_name)
+
+    print(f'\n{len(unmatched_mps)} unmatched MPs:')
+    for mp_name in unmatched_mps:
+        print(mp_name)
+
+    return mps
+
 
 ### MAIN CODE ###
+mps = mp_generator('mps_2024.csv')
+# for mp in mps.values():
+#     print(mp.name)
+quit()
 
-# ~ # Pickle load links
-# ~ mp_finances_link_dic = pickle_io(load=True, file_name = 'mp_finances_link_dic')
-
-# ~ # Load CSV and get party and constituency data
-# ~ mp_party_constit = {}
-# ~ with open('mps.csv', 'r') as csvfile:
-    # ~ csv_reader = csv.reader(csvfile)
-    # ~ rows = [row for row in csv_reader]
-# ~ for row in rows:
-    # ~ mp_fl_names = (row[2], row[1])
-    # ~ mp_party_constit[mp_fl_names] = {'Party': row[3], 'Constituency': row[4]}
 
 # Load MP Object dictionary from file
 mps = pickle_io('New_MP_Object_Dict', load = True)

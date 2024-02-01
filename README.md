@@ -1,7 +1,7 @@
 # Freebies-for-MPs
 A project that web-scrapes publicly available 'Financial Interest' information about UK MPs and provides some insights into that data.
 
-- The project initialy scrapes all the necisarry links from the [contents page](https://publications.parliament.uk/pa/cm/cmregmem/220503/contents.htm).
+- The project initialy scrapes all the necisarry links from this [contents page](https://publications.parliament.uk/pa/cm/cmregmem/231030/contents.htm), matching it with party and constituancy data from [TheyWorkForYou](https://www.theyworkforyou.com/mps/).
 - Each MP page is then webscraped using Selenium and BeautifulSoup. Data is then applied to MP objects held in a dictionary.
 - MatPlotLib and general data analysis can then be used to see broader trends across this dataset.
 ---
