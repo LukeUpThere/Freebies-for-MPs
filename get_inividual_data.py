@@ -387,7 +387,7 @@ for party in parties:
 for party, amount in sorted(party_averages.items(), key=lambda item: item[1]):
     print(f"{party} Average: {amount[0]}\n{party} Total: {amount[1]}\n")
 
-## Find 4 highest 'earners'
+## Display donation totals for each MP
 mp_totals = {}
 for mp in mps.values():
     mp_totals[mp.name] = (mp.total_donations(), mp.party)
