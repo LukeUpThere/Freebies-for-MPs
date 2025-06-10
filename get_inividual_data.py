@@ -155,13 +155,11 @@ def get_annual_total(text):
     # Find the monthly income
     income_match = re.search(r"£(\d{1,}(?:,\d{3})*(?:\.\d{2})?)", text)
     if income_match:
-        income = float(income_match.group(1).replace(',', '')[1:])
+        income = float(income_match.group(1).replace(',', ''))
         #print(f"income: {income}") # Debugging
     else:
         # handle the case where no match was found
         return ('error with income_match', date_received)
-
-    income = float(income_match.group(1).replace(',', '')[1:])
 
     # Calculate the total income
     quarter_synonyms = ['a quarter', 'quarterly', 'every three months']
